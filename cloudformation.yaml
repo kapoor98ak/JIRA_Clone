@@ -1,0 +1,57 @@
+Parameters:
+  InstanceEnvironmentParameter:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+    Description: Enter dev or prod environment, default is dev.
+
+  KeyNameParameter:
+    Type: String
+    Description: Name of the existing key pair to be used for SSH access.
+
+Mappings:
+  InstanceMap:
+    us-east-1:
+      dev: t2.micro
+      prod: m1.small
+    us-west-1:
+      dev: m1.small
+      prod: m1.large
+  AMIMap:
+    us-east-1:
+      dev: ami-051f8a213df8bc089
+      prod: ami-0915bcb5fa77e4892
+    us-west-1:
+      dev: ami-051f8a213df8bc089
+      prod: ami-066c82dabe6dd7f73
+
+Resources:
+  MySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access from anywhere
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+  MyInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      AvailabilityZone: us-east-1a
+      ImageId: !FindInMap [AMIMap, !Ref "AWS::Region", !Ref InstanceEnvironmentParameter]
+      InstanceType: !FindInMap [InstanceMap,!Ref "AWS::Region", !Ref InstanceEnvironmentParameter]
+      SecurityGroups:
+        - !Ref MySecurityGroup
+      KeyName: !Ref KeyNameParameter  # Use the specified key pair name parameter
+
+  MyEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref MyInstance
+
+# This is working perfectly and I am able to SSH into the EC2 Server
+# ssh -i key-pair-cloud-term-project.pem ec2-user@44.222.58.66
