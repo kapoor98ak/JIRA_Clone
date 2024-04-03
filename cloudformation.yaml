@@ -11,6 +11,15 @@ Parameters:
     Type: String
     Description: Name of the existing key pair to be used for SSH access.
 
+  # DBUsername:
+  #     Type: String
+  #     Description: Master username for the RDS database.
+  
+  # DBMasterPassword:
+  #   Type: String
+  #   NoEcho: true
+  #   Description: Master password for the RDS database.
+
 Mappings:
   InstanceMap:
     us-east-1:
@@ -28,6 +37,7 @@ Mappings:
       prod: ami-066c82dabe6dd7f73
 
 Resources:
+
   MySecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -37,9 +47,15 @@ Resources:
           FromPort: 22
           ToPort: 22
           CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 3306  # MySQL port
+          ToPort: 3306
+          CidrIp: 0.0.0.0/0
+          # SourceSecurityGroupId: !GetAtt MyInstance.SecurityGroups.0  # Allow MySQL access from the EC2 instance's security group
 
   MyInstance:
     Type: AWS::EC2::Instance
+    DependsOn: MySecurityGroup  
     Properties:
       AvailabilityZone: us-east-1a
       ImageId: !FindInMap [AMIMap, !Ref "AWS::Region", !Ref InstanceEnvironmentParameter]
@@ -50,8 +66,68 @@ Resources:
 
   MyEIP:
     Type: AWS::EC2::EIP
+    DependsOn: MyInstance  
     Properties:
       InstanceId: !Ref MyInstance
 
-# This is working perfectly and I am able to SSH into the EC2 Server
-# ssh -i key-pair-cloud-term-project.pem ec2-user@44.222.58.66
+  # This is working perfectly and I am able to SSH into the EC2 Server
+  # ssh -i key-pair-cloud-term-project.pem ec2-user@44.222.58.66
+          
+  RDSSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: MyRDSCredentials
+      Description: RDS credentials will be stored in Secrets Manager
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "admin"}'
+        # SecretStringTemplate: '{"username": !Ref DBUsername}'
+        GenerateStringKey: "password"
+        PasswordLength: 16
+        ExcludeCharacters: '"@/\\'
+
+  MyDBSecurityGroup:
+    Type: AWS::RDS::DBSecurityGroup
+    Properties:
+      GroupDescription: Allow inbound access from anywhere
+      DBSecurityGroupIngress:
+        - CIDRIP: 0.0.0.0/0
+        
+  MyDBInstance:
+    Type: AWS::RDS::DBInstance
+    DependsOn:
+      - RDSSecret
+      - MyDBSecurityGroup  
+    Properties:
+      Engine: mysql
+      EngineVersion: '8.0.35'
+
+      DBInstanceClass: db.t3.micro  
+
+      AllocatedStorage: 10
+
+      # DBClusterIdentifier: MyDBCluster-2107
+      DBInstanceIdentifier: MyDBInstance-2107
+
+      DBName: temp_db
+      MasterUsername: !Sub '{{resolve:secretsmanager:${RDSSecret}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${RDSSecret}:SecretString:password}}'
+
+      PubliclyAccessible: true  # Allow access from anywhere
+      
+      DBSecurityGroups:
+        - !Ref MyDBSecurityGroup  # Attach the same security group as the EC2 instance
+
+Outputs:
+  RDSInstanceEndpoint:
+    Description: Endpoint of the created RDS instance
+    Value: !GetAtt MyDBInstance.Endpoint.Address
+    # DependsOn: MyDBInstance
+
+  # RDSInstanceMasterUserSecretSecretArn:
+  #   Description: Endpoint of the created RDS instance
+  #   Value: !GetAtt MasterUserSecret.SecretArn
+
+  EC2ElasticIP:
+    Description: Elastic IP of the EC2 instance
+    Value: !GetAtt MyEIP.PublicIp
+    # DependsOn: MyEIP
