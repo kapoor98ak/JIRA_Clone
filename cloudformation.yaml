@@ -132,8 +132,9 @@ Resources:
       Endpoint: "kapoor98.ak@gmail.com"
       TopicArn: !Ref MySNSTopic
 
-  #  This is working almost fine, I am getting an email when I create a AWS::SNS::Subscription but I am not getting an email confirmation link, I need to manually do it from the console
-
+  # This is working almost fine, I am getting an email when I create a AWS::SNS::Subscription but I am not getting an email confirmation link, I need to manually do it from the console
+  # aws sns publish --topic-arn arn:aws:sns:us-east-1:851725512559:mystack3-MySNSTopic-pWbkYVQFx4jY --message 'Hello!'
+  
 
 Outputs:
   RDSInstanceEndpoint:
