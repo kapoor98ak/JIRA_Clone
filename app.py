@@ -51,7 +51,15 @@ def create_issue():
             'Body': 'Hello! A new issue has been created for you.'
         }
         print("Sending Email!")
+        
         sendEmail.invoke_lambda_function(lambda_function_name, payload)
+
+        # TODO:
+        # 1. Call the createTopic from here
+        # create Issue -> create Topic
+        # for all assignees -> create Subscription
+
+
         cursor.close()
         conn.close()
 
