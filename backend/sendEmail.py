@@ -15,7 +15,6 @@ def invoke_lambda_function(function_name, payload):
             InvocationType='RequestResponse',  # Can be 'Event' for asynchronous invocation
             Payload=payload_bytes
         )
-        print(response.__class__)
         return response
     except Exception as e:
         print(f"Error invoking Lambda function: {e}")
