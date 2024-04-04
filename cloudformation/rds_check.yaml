@@ -1,0 +1,56 @@
+Resources:
+
+  RDSSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: MyRDSCredentials-1
+      Description: RDS credentials will be stored in Secrets Manager
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "admin"}'
+        # SecretStringTemplate: '{"username": !Ref DBUsername}'
+        GenerateStringKey: "password"
+        PasswordLength: 16
+        ExcludeCharacters: '"@/\\'
+
+  MyDBSecurityGroup:
+    Type: AWS::RDS::DBSecurityGroup
+    Properties:
+      GroupDescription: Allow inbound access from anywhere
+      DBSecurityGroupIngress:
+        - CIDRIP: 0.0.0.0/0
+        
+  MyDBInstance:
+    Type: AWS::RDS::DBInstance
+    DependsOn:
+      - RDSSecret
+      - MyDBSecurityGroup  
+    Properties:
+      Engine: mysql
+      EngineVersion: '8.0.35'
+
+      DBInstanceClass: db.t3.micro 
+      DeletionProtection: false
+
+      AllocatedStorage: 10
+
+      DBInstanceIdentifier: MyDBInstance-2107-1
+
+      DBName: temp_db
+      MasterUsername: !Sub '{{resolve:secretsmanager:${RDSSecret}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${RDSSecret}:SecretString:password}}'
+
+      PubliclyAccessible: true  # Allow access from anywhere
+      
+      DBSecurityGroups:
+        - !Ref MyDBSecurityGroup  
+  # This is working perfectly and I am able to connect to the RDS Database
+  # mydbinstance-2107.cjs42euouytr.us-east-1.rds.amazonaws.com - I got this from the output section of Cloud Formation and then I also got the Username and Password from the Secret Manager      
+
+Outputs:
+  RDSInstanceEndpoint:
+    Description: Endpoint of the created RDS instance
+    Value: !GetAtt MyDBInstance.Endpoint.Address
+
+  RDSSecretARN:
+    Description: ARN for the RDS Secret
+    Value: !GetAtt RDSSecret.Id

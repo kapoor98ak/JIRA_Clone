@@ -1,78 +1,5 @@
-Parameters:
-  InstanceEnvironmentParameter:
-    Type: String
-    Default: dev
-    AllowedValues:
-      - dev
-      - prod
-    Description: Enter dev or prod environment, default is dev.
-
-  KeyNameParameter:
-    Type: String
-    Description: Name of the existing key pair to be used for SSH access.
-
-  UserEmail:
-    Type: String
-    Description: Email of the user to subscribe to the SNS topic
-
-  # DBUsername:
-  #     Type: String
-  #     Description: Master username for the RDS database.
-  
-  # DBMasterPassword:
-  #   Type: String
-  #   NoEcho: true
-  #   Description: Master password for the RDS database.
-
-Mappings:
-  InstanceMap:
-    us-east-1:
-      dev: t2.micro
-      prod: m1.small
-    us-west-1:
-      dev: m1.small
-      prod: m1.large
-  AMIMap:
-    us-east-1:
-      dev: ami-051f8a213df8bc089
-      prod: ami-0915bcb5fa77e4892
-    us-west-1:
-      dev: ami-051f8a213df8bc089
-      prod: ami-066c82dabe6dd7f73
-
 Resources:
 
-  MySecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Enable SSH access from anywhere
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 0.0.0.0/0
-      
-
-  MyInstance:
-    Type: AWS::EC2::Instance
-    DependsOn: MySecurityGroup  
-    Properties:
-      AvailabilityZone: us-east-1a
-      ImageId: !FindInMap [AMIMap, !Ref "AWS::Region", !Ref InstanceEnvironmentParameter]
-      InstanceType: !FindInMap [InstanceMap,!Ref "AWS::Region", !Ref InstanceEnvironmentParameter]
-      SecurityGroups: 
-        - !Ref MySecurityGroup
-      KeyName: !Ref KeyNameParameter  # Use the specified key pair name parameter
-
-  MyEIP:
-    Type: AWS::EC2::EIP
-    DependsOn: MyInstance  
-    Properties:
-      InstanceId: !Ref MyInstance
-
-  # This is working perfectly and I am able to SSH into the EC2 Server
-  # ssh -i key-pair-cloud-term-project.pem ec2-user@44.222.58.66
-          
   RDSSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
@@ -102,23 +29,21 @@ Resources:
       EngineVersion: '8.0.35'
 
       DBInstanceClass: db.t3.micro 
-      DeletionProtection: false 
+      DeletionProtection: false
 
       AllocatedStorage: 10
 
       DBInstanceIdentifier: MyDBInstance-2107-1
 
-      DBName: temp_db 
+      DBName: temp_db
       MasterUsername: !Sub '{{resolve:secretsmanager:${RDSSecret}:SecretString:username}}'
       MasterUserPassword: !Sub '{{resolve:secretsmanager:${RDSSecret}:SecretString:password}}'
 
       PubliclyAccessible: true  # Allow access from anywhere
       
       DBSecurityGroups:
-        - !Ref MyDBSecurityGroup  # Attach the same security group as the EC2 instance
-  # This is working perfectly and I am able to connect to the RDS Database
-  # mydbinstance-2107.cjs42euouytr.us-east-1.rds.amazonaws.com - I got this from the output section of Cloud Formation and then I also got the Username and Password from the Secret Manager      
-
+        - !Ref MyDBSecurityGroup  
+        
   MySNSTopic:
       Type: AWS::SNS::Topic
       Properties:
@@ -154,16 +79,11 @@ Resources:
   # This is working perfectly and I am able to connect to the RDS Database
   # mydbinstance-2107.cjs42euouytr.us-east-1.rds.amazonaws.com - I got this from the output section of Cloud Formation and then I also got the Username and Password from the Secret Manager      
 
-
 Outputs:
   RDSInstanceEndpoint:
     Description: Endpoint of the created RDS instance
     Value: !GetAtt MyDBInstance.Endpoint.Address
 
-  EC2ElasticIP:
-    Description: Elastic IP of the EC2 instance
-    Value: !GetAtt MyEIP.PublicIp
-
-  SNSTopicARN:
-    Description: ARN of the created SNS topic
-    Value: !Ref MySNSTopic
+  RDSSecretARN:
+    Description: ARN for the RDS Secret
+    Value: !GetAtt RDSSecret.Id

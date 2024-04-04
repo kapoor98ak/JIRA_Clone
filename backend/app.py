@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import mysql.connector
-import sendEmail
+import utils.sendEmail as sendEmail
+import utils.MySQLConn as MySQLConn
 
 app = Flask(__name__)
 lambda_function_name = 'emailSenderLambdaFunction'
@@ -34,11 +35,12 @@ def create_issue():
     title = data['title']
 
     # Connect to the database
-    conn = connect_to_db()
+    conn = MySQLConn.connect_to_db()
     cursor = conn.cursor()
 
     # Insert data into Issue table
     try:
+        cursor.execute("USE JIRA")
         cursor.execute("INSERT INTO Issue (assignee, assigner, status, date, title) VALUES (%s, %s, %s, %s, %s)",
                        (assignee_email, assigner_email, status, date, title))
         conn.commit()
@@ -70,15 +72,17 @@ def edit_issue(issue_id):
     assignee_email = data['assignee']
     status = data['status']
     date = data['date']
+    title = data['title']
 
     # Connect to the database
-    conn = connect_to_db()
+    conn = MySQLConn.connect_to_db()
     cursor = conn.cursor()
 
     # Update data into Issue table
     try:
-        cursor.execute("UPDATE Issue SET assignee = %s, status = %s, date = %s WHERE issue_id = %s",
-                       (assignee_email, status, date, issue_id))
+        cursor.execute("USE JIRA")
+        cursor.execute("UPDATE Issue SET assignee = %s, status = %s, date = %s, title = %s WHERE issue_id = %s",
+                       (assignee_email, status, date, title, issue_id))
         conn.commit()
         return jsonify({'message': f'Issue #{issue_id} edited successfully'}), 200
     
@@ -89,7 +93,10 @@ def edit_issue(issue_id):
             'Subject': 'Issue Edited!',
             'Body': f'Issue #{issue_id} edited successfully.'
         }
+        print("Sending Email!")
+        
         sendEmail.invoke_lambda_function(lambda_function_name, payload)
+        
         cursor.close()
         conn.close()
 
