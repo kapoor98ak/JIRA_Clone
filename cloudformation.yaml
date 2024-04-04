@@ -1,44 +1,44 @@
-# Parameters:
-  # InstanceEnvironmentParameter:
-  #   Type: String
-  #   Default: dev
-  #   AllowedValues:
-  #     - dev
-  #     - prod
-  #   Description: Enter dev or prod environment, default is dev.
+Parameters:
+  InstanceEnvironmentParameter:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+    Description: Enter dev or prod environment, default is dev.
 
-  # KeyNameParameter:
-  #   Type: String
-  #   Description: Name of the existing key pair to be used for SSH access.
+  KeyNameParameter:
+    Type: String
+    Description: Name of the existing key pair to be used for SSH access.
 
-  # UserEmail:
-  #   Type: String
-  #   Description: Email of the user to subscribe to the SNS topic
+  UserEmail:
+    Type: String
+    Description: Email of the user to subscribe to the SNS topic
 
-  # # DBUsername:
-  # #     Type: String
-  # #     Description: Master username for the RDS database.
+  # DBUsername:
+  #     Type: String
+  #     Description: Master username for the RDS database.
   
-  # # DBMasterPassword:
-  # #   Type: String
-  # #   NoEcho: true
-  # #   Description: Master password for the RDS database.
+  # DBMasterPassword:
+  #   Type: String
+  #   NoEcho: true
+  #   Description: Master password for the RDS database.
 
-# Mappings:
-#   InstanceMap:
-#     us-east-1:
-#       dev: t2.micro
-#       prod: m1.small
-#     us-west-1:
-#       dev: m1.small
-#       prod: m1.large
-#   AMIMap:
-#     us-east-1:
-#       dev: ami-051f8a213df8bc089
-#       prod: ami-0915bcb5fa77e4892
-#     us-west-1:
-#       dev: ami-051f8a213df8bc089
-#       prod: ami-066c82dabe6dd7f73
+Mappings:
+  InstanceMap:
+    us-east-1:
+      dev: t2.micro
+      prod: m1.small
+    us-west-1:
+      dev: m1.small
+      prod: m1.large
+  AMIMap:
+    us-east-1:
+      dev: ami-051f8a213df8bc089
+      prod: ami-0915bcb5fa77e4892
+    us-west-1:
+      dev: ami-051f8a213df8bc089
+      prod: ami-066c82dabe6dd7f73
 
 Resources:
 
@@ -60,7 +60,7 @@ Resources:
       AvailabilityZone: us-east-1a
       ImageId: !FindInMap [AMIMap, !Ref "AWS::Region", !Ref InstanceEnvironmentParameter]
       InstanceType: !FindInMap [InstanceMap,!Ref "AWS::Region", !Ref InstanceEnvironmentParameter]
-      SecurityGroups:
+      SecurityGroups: 
         - !Ref MySecurityGroup
       KeyName: !Ref KeyNameParameter  # Use the specified key pair name parameter
 
@@ -134,7 +134,22 @@ Resources:
 
   # This is working almost fine, I am getting an email when I create a AWS::SNS::Subscription but I am not getting an email confirmation link, I need to manually do it from the console
   # aws sns publish --topic-arn arn:aws:sns:us-east-1:851725512559:mystack3-MySNSTopic-pWbkYVQFx4jY --message 'Hello!'
-  
+
+  EmailSenderFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: emailSenderLambdaFunction
+      Handler: lambda_function.lambda_handler
+      # LabRole ARN
+      Role: arn:aws:iam::851725512559:role/LabRole
+      Code:
+        S3Bucket: my-lambda-code-bucket-1
+        S3Key: lambda_function.py.zip
+      Runtime: python3.8
+      Timeout: 30
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: !Ref MySNSTopic
 
 Outputs:
   RDSInstanceEndpoint:
@@ -144,8 +159,6 @@ Outputs:
   EC2ElasticIP:
     Description: Elastic IP of the EC2 instance
     Value: !GetAtt MyEIP.PublicIp
-
-  
 
   SNSTopicARN:
     Description: ARN of the created SNS topic
