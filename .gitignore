@@ -25,3 +25,6 @@ replay_pid*
 
 # IntelliJ IDEA
 .idea
+
+# Cache
+__pycache__
