@@ -1,7 +1,8 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import mysql.connector
 import utils.sendEmail as sendEmail
 import utils.MySQLConn as MySQLConn
+import utils.executeSqlRDS as executeSqlRDS
 
 app = Flask(__name__)
 lambda_function_name = 'emailSenderLambdaFunction'
@@ -18,9 +19,14 @@ db_config = {
 def connect_to_db():
     return mysql.connector.connect(**db_config)
 
+
 @app.route('/')
-def hello():
-    return ("Jell-o World!")
+def home():
+    return render_template('issue_management.html')
+
+# @app.route('/')
+# def hello():
+#     return ("Jell-o World!")
 
 # Create Issue endpoint
 @app.route('/create', methods=['POST'])
@@ -101,4 +107,5 @@ def edit_issue(issue_id):
         conn.close()
 
 if __name__ == '__main__':
+    MySQLConn.setup_RDS()
     app.run(port=8080)
