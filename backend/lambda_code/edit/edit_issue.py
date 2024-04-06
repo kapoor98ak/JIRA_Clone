@@ -3,7 +3,6 @@ import mysql.connector
 import boto3
 import json
 
-
 app = Flask(__name__)
 lambda_function_name = 'emailSenderLambdaFunction'
 
@@ -12,63 +11,12 @@ lambda_function_name = 'emailSenderLambdaFunction'
 def home():
     return render_template('issue_management.html')
 
-# Create Issue endpoint
-@app.route('/create', methods=['POST'])
-def create_issue():
-    print("create_issue")
-    # Parse request data
-    data = request.json
-
-    assignee_email = data['assignee']
-    assigner_email = data['assigner']
-    status = "Open"
-    date = data['date']
-    title = data['title']
-
-    # Connect to the database
-
-    db_config = {}
-    conn = connect_to_db()
-    cursor = conn.cursor()
-
-    # Insert data into Issue table
-    try:
-
-        # Execute SQL query to check for existing tables in the 'JIRA' schema
-        cursor.execute("SELECT TABLE_NAME FROM information_schema.tables WHERE TABLE_SCHEMA = 'JIRA' AND TABLE_TYPE = 'BASE TABLE'")
-        tables = cursor.fetchall()
-        existing_tables = [table[0] for table in tables]
-
-        if existing_tables:
-            print("Tables found...")
-            print("Existing tables in 'JIRA' schema:", existing_tables)
-        else:
-            setup_RDS()
-            print("No tables found in 'JIRA' schema")
-
-        cursor.execute("USE JIRA")
-        cursor.execute("INSERT INTO Issue (assignee, assigner, status, date, title) VALUES (%s, %s, %s, %s, %s)",
-                       (assignee_email, assigner_email, status, date, title))
-        conn.commit()
-        return jsonify({'message': 'Issue created successfully'}), 200
-    except mysql.connector.Error as err:
-        return jsonify({'error': str(err)}), 500
-    finally:
-        payload = {
-            'Subject': 'Issue Created!',
-            'Body': 'Hello! A new issue has been created for you.'
-        }
-        print("Sending Email!")
-        
-        invoke_lambda_function(lambda_function_name, payload)
-
-        cursor.close()
-        conn.close()
 
 @app.route('/edit/<int:issue_id>', methods=['POST'])
 def edit_issue(issue_id):
     print("edit_issue")
     data = request.json
+
 
     assignee_email = data['assignee']
     status = data['status']
@@ -180,9 +128,7 @@ def setup_RDS():
     print(execute_SQL_RDS('sql-scripts/insert-data.sql'))
 
 
-if __name__ == '__main__':
 
-    execute_SQL_RDS('sql-scripts/delete-database.sql')
-
-    app.run(port=8080)
-
+# if __name__ == '__main__':
+#     # execute_SQL_RDS('sql-scripts/delete-database.sql')
+#     app.run(port=8081)

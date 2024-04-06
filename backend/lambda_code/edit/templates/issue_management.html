@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JIRA Issue Management</title>
+</head>
+<body>
+    <h1>JIRA Issue Management</h1>
+    <div>
+        <h2>Create Issue</h2>
+        <form id="create-form">
+            <label for="assigner-email">Assigner Email:</label><br>
+            <input type="email" id="assigner-email" name="assigner-email"><br>
+            <label for="assignee-email">Assignee Email:</label><br>
+            <input type="email" id="assignee-email" name="assignee-email"><br>
+            <label for="title">Title:</label><br>
+            <input type="text" id="title" name="title"><br>
+            <label for="date">Date:</label><br>
+            <input type="date" id="date" name="date"><br><br>
+            <button type="button" onclick="createIssue()">Done</button>
+        </form>
+    </div>
+    <div>
+        <h2>Edit Issue</h2>
+        <form id="edit-form">
+            <label for="edit-issue-id">Issue ID:</label><br>
+            <input type="number" id="edit-issue-id" name="edit-issue-id"><br>
+            <label for="edit-title">New Title:</label><br>
+            <input type="text" id="edit-title" name="edit-title"><br>
+            <label for="edit-assignee">New Assignee:</label><br>
+            <input type="text" id="edit-assignee" name="edit-assignee"><br>
+            <label for="edit-status">New Status:</label><br>
+            <input type="text" id="edit-status" name="edit-status"><br>
+            <label for="edit-date">New Date:</label><br>
+            <input type="date" id="edit-date" name="edit-date"><br><br>
+            <button type="button" onclick="editIssue()">Done</button>
+        </form>
+    </div>
+
+    <script>
+        function createIssue() {
+            var assignerEmail = document.getElementById('assigner-email').value;
+            var assigneeEmail = document.getElementById('assignee-email').value;
+            var title = document.getElementById('title').value;
+            var date = document.getElementById('date').value;
+
+            var data = {
+                "assigner": assignerEmail,
+                "assignee": assigneeEmail,
+                "title": title,
+                "date": date
+            };
+
+            fetch('/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('Issue created successfully');
+                    document.getElementById('create-form').reset();
+                } else {
+                    alert('Error#1: Error creating issue');
+                }
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
+
+        function editIssue() {
+            var issueId = document.getElementById('edit-issue-id').value;
+            var newTitle = document.getElementById('edit-title').value;
+            var newAssignee = document.getElementById('edit-assignee').value;
+            var newStatus = document.getElementById('edit-status').value;
+            var newDate = document.getElementById('edit-date').value;
+
+            var data = {
+                "title": newTitle,
+                "assignee": newAssignee,
+                "status": newStatus,
+                "date": newDate
+            };
+
+            fetch(`/edit/${issueId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert(`Issue #${issueId} edited successfully`);
+                    document.getElementById('edit-form').reset();
+                } else {
+                    alert('Error editing issue');
+                }
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
+    </script>
+</body>
+</html>
