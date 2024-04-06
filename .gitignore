@@ -28,3 +28,6 @@ replay_pid*
 
 # Cache
 __pycache__
+
+# Credentials
+*.pem

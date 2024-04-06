@@ -7,13 +7,13 @@ Parameters:
       - prod
     Description: Enter dev or prod environment, default is dev.
 
-  KeyNameParameter:
-    Type: String
-    Description: Name of the existing key pair to be used for SSH access.
+  # KeyNameParameter:
+  #   Type: String
+  #   Description: Name of the existing key pair to be used for SSH access.
 
-  UserEmail:
-    Type: String
-    Description: Email of the user to subscribe to the SNS topic
+  # UserEmail:
+  #   Type: String
+  #   Description: Email of the user to subscribe to the SNS topic
 
   # DBUsername:
   #     Type: String
@@ -42,27 +42,94 @@ Mappings:
 
 Resources:
 
-  MySecurityGroup:
-    Type: AWS::EC2::SecurityGroup
+# Setting up the VPC
+  MyVPC:
+    Type: AWS::EC2::VPC
     Properties:
-      GroupDescription: Enable SSH access from anywhere
+      CidrBlock: '10.0.0.0/16'
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+
+  MyInternetGateway:
+    DependsOn: MyVPC
+    Type: AWS::EC2::InternetGateway
+
+  MyVPCGatewayAttachment:
+    DependsOn: MyVPC
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MyVPC
+      InternetGatewayId: !Ref MyInternetGateway
+  
+  MyPublicSubnetUSEast1A:
+    Type: AWS::EC2::Subnet
+    DependsOn: MyVPC
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: '10.0.1.0/24'
+      AvailabilityZone: 'us-east-1a'
+      MapPublicIpOnLaunch: true
+
+  MyPublicSubnetUSEast1B:
+    Type: AWS::EC2::Subnet
+    DependsOn: MyVPC
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: '10.0.2.0/24'
+      AvailabilityZone: 'us-east-1b'
+      MapPublicIpOnLaunch: true
+
+  MyEC2PublicSubnetUSEast1A:
+    Type: AWS::EC2::Subnet
+    DependsOn: MyVPC
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: '10.0.3.0/24'
+      AvailabilityZone: 'us-east-1a'
+      MapPublicIpOnLaunch: true
+
+  MySecurityGroupEC2:
+    Type: AWS::EC2::SecurityGroup
+    DependsOn: MyVPC
+    Properties:
+      GroupDescription: Security group for EC2 instance
+      VpcId: !Ref MyVPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
+          CidrIp: 134.190.142.73/32
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
           CidrIp: 0.0.0.0/0
-      
 
   MyInstance:
     Type: AWS::EC2::Instance
-    DependsOn: MySecurityGroup  
+    DependsOn: 
+      - MyVPC
+      - MySecurityGroupEC2  
     Properties:
       AvailabilityZone: us-east-1a
       ImageId: !FindInMap [AMIMap, !Ref "AWS::Region", !Ref InstanceEnvironmentParameter]
       InstanceType: !FindInMap [InstanceMap,!Ref "AWS::Region", !Ref InstanceEnvironmentParameter]
-      SecurityGroups: 
-        - !Ref MySecurityGroup
-      KeyName: !Ref KeyNameParameter  # Use the specified key pair name parameter
+      # SecurityGroups: 
+      #   # - !GetAtt MySecurityGroupEC2.GroupId
+      #   - !Ref MySecurityGroupEC2
+
+      # SecurityGroupIds: 
+      #   - !GetAtt MySecurityGroupEC2.GroupId
+      
+      NetworkInterfaces: 
+      - AssociatePublicIpAddress: 'true'
+        DeviceIndex: '0'
+        GroupSet: 
+          - !GetAtt MySecurityGroupEC2.GroupId
+        SubnetId: !Ref MyEC2PublicSubnetUSEast1A
+
+
+      # KeyName: !Ref KeyNameParameter  # Use the specified key pair name parameter
+      KeyName: 'key-pair-cloud-term-project'
 
   MyEIP:
     Type: AWS::EC2::EIP
@@ -73,97 +140,112 @@ Resources:
   # This is working perfectly and I am able to SSH into the EC2 Server
   # ssh -i key-pair-cloud-term-project.pem ec2-user@44.222.58.66
           
-  RDSSecret:
-    Type: AWS::SecretsManager::Secret
-    Properties:
-      Name: MyRDSCredentials-1
-      Description: RDS credentials will be stored in Secrets Manager
-      GenerateSecretString:
-        SecretStringTemplate: '{"username": "admin"}'
-        # SecretStringTemplate: '{"username": !Ref DBUsername}'
-        GenerateStringKey: "password"
-        PasswordLength: 16
-        ExcludeCharacters: '"@/\\'
 
-  MyDBSecurityGroup:
-    Type: AWS::RDS::DBSecurityGroup
-    Properties:
-      GroupDescription: Allow inbound access from anywhere
-      DBSecurityGroupIngress:
-        - CIDRIP: 0.0.0.0/0
+          # This part was commented to only check the VPC and EC2
+#   MySecurityGroupRDS:
+#     Type: AWS::RDS::DBSecurityGroup
+#     DependsOn: MyVPC
+#     Properties:
+#       GroupDescription: Security group for RDS instance
+#       EC2VpcId: !Ref MyVPC
+#       DBSecurityGroupIngress:
+#         - CIDRIP: 134.190.142.73/32
+#         - EC2SecurityGroupId: !GetAtt MySecurityGroupEC2.GroupId
+
+#   MyDBSubnetGroup:
+#     Type: AWS::RDS::DBSubnetGroup
+#     DependsOn: MyVPC
+#     Properties:
+#       DBSubnetGroupDescription: DB subnet group for RDS instance
+#       SubnetIds:
+#         - !Ref MyPublicSubnetUSEast1A
+#         - !Ref MyPublicSubnetUSEast1B
+
+#   RDSSecret:
+#     Type: AWS::SecretsManager::Secret
+#     Properties:
+#       Name: MyRDSCredentials-2
+#       Description: RDS credentials will be stored in Secrets Manager
+#       GenerateSecretString:
+#         SecretStringTemplate: '{"username": "admin"}'
+#         # SecretStringTemplate: '{"username": !Ref DBUsername}'
+#         GenerateStringKey: "password"
+#         PasswordLength: 16
+#         ExcludeCharacters: '"@/\\'
         
-  MyDBInstance:
-    Type: AWS::RDS::DBInstance
-    DependsOn:
-      - RDSSecret
-      - MyDBSecurityGroup  
-    Properties:
-      Engine: mysql
-      EngineVersion: '8.0.35'
+#   MyDBInstance:
+#     Type: AWS::RDS::DBInstance
+#     DependsOn:
+#       - RDSSecret
+#       - MySecurityGroupRDS  
+#       - MyDBSubnetGroup
+#     Properties:
+#       Engine: mysql
+#       EngineVersion: '8.0.35'
 
-      DBInstanceClass: db.t3.micro 
-      DeletionProtection: false 
+#       DBInstanceClass: db.t3.micro 
+#       DeletionProtection: false 
 
-      AllocatedStorage: 10
+#       AllocatedStorage: 10
 
-      DBInstanceIdentifier: MyDBInstance-2107-1
+#       DBInstanceIdentifier: MyDBInstance-2107-1
 
-      DBName: temp_db 
-      MasterUsername: !Sub '{{resolve:secretsmanager:${RDSSecret}:SecretString:username}}'
-      MasterUserPassword: !Sub '{{resolve:secretsmanager:${RDSSecret}:SecretString:password}}'
+#       DBName: temp_db 
+#       MasterUsername: !Sub '{{resolve:secretsmanager:${RDSSecret}:SecretString:username}}'
+#       MasterUserPassword: !Sub '{{resolve:secretsmanager:${RDSSecret}:SecretString:password}}'
 
-      PubliclyAccessible: true  # Allow access from anywhere
-      
-      DBSecurityGroups:
-        - !Ref MyDBSecurityGroup  # Attach the same security group as the EC2 instance
-  # This is working perfectly and I am able to connect to the RDS Database
-  # mydbinstance-2107.cjs42euouytr.us-east-1.rds.amazonaws.com - I got this from the output section of Cloud Formation and then I also got the Username and Password from the Secret Manager      
+#       PubliclyAccessible: true  # Allow access from anywhere
+#       DBSubnetGroupName: !Ref MyDBSubnetGroup
+#       VPCSecurityGroups:
+#         - !Ref MySecurityGroupRDS # Attach the same security group as the EC2 instance
+#   # This is working perfectly and I am able to connect to the RDS Database
+#   # mydbinstance-2107.cjs42euouytr.us-east-1.rds.amazonaws.com - I got this from the output section of Cloud Formation and then I also got the Username and Password from the Secret Manager      
 
-  MySNSTopic:
-      Type: AWS::SNS::Topic
-      Properties:
-        DisplayName: MySNSNotificationTopic
+#   MySNSTopic:
+#       Type: AWS::SNS::Topic
+#       Properties:
+#         DisplayName: MySNSNotificationTopic
 
-  MySNSSubscription:
-    Type: AWS::SNS::Subscription
-    DependsOn: MySNSTopic
-    Properties:
-      Protocol: email
-      # Endpoint: !Ref UserEmail
-      Endpoint: "kapoor98.ak@gmail.com"
-      TopicArn: !Ref MySNSTopic
+#   MySNSSubscription:
+#     Type: AWS::SNS::Subscription
+#     DependsOn: MySNSTopic
+#     Properties:
+#       Protocol: email
+#       # Endpoint: !Ref UserEmail
+#       Endpoint: "kapoor98.ak@gmail.com"
+#       TopicArn: !Ref MySNSTopic
 
-  # This is working almost fine, I am getting an email when I create a AWS::SNS::Subscription but I am not getting an email confirmation link, I need to manually do it from the console
-  # aws sns publish --topic-arn arn:aws:sns:us-east-1:851725512559:mystack3-MySNSTopic-pWbkYVQFx4jY --message 'Hello!'
+#   # This is working almost fine, I am getting an email when I create a AWS::SNS::Subscription but I am not getting an email confirmation link, I need to manually do it from the console
+#   # aws sns publish --topic-arn arn:aws:sns:us-east-1:851725512559:mystack3-MySNSTopic-pWbkYVQFx4jY --message 'Hello!'
 
-  EmailSenderFunction:
-    Type: 'AWS::Lambda::Function'
-    Properties:
-      FunctionName: emailSenderLambdaFunction
-      Handler: lambda_function.lambda_handler
-      # LabRole ARN
-      Role: arn:aws:iam::851725512559:role/LabRole
-      Code:
-        S3Bucket: my-lambda-code-bucket-1
-        S3Key: lambda_function.py.zip
-      Runtime: python3.8
-      Timeout: 30
-      Environment:
-        Variables:
-          SNS_TOPIC_ARN: !Ref MySNSTopic
-  # This is working perfectly and I am able to connect to the RDS Database
-  # mydbinstance-2107.cjs42euouytr.us-east-1.rds.amazonaws.com - I got this from the output section of Cloud Formation and then I also got the Username and Password from the Secret Manager      
+#   EmailSenderFunction:
+#     Type: 'AWS::Lambda::Function'
+#     Properties:
+#       FunctionName: emailSenderLambdaFunction
+#       Handler: lambda_function.lambda_handler
+#       # LabRole ARN
+#       Role: arn:aws:iam::851725512559:role/LabRole
+#       Code:
+#         S3Bucket: my-lambda-code-bucket-1
+#         S3Key: lambda_function.py.zip
+#       Runtime: python3.8
+#       Timeout: 30
+#       Environment:
+#         Variables:
+#           SNS_TOPIC_ARN: !Ref MySNSTopic
+#   # This is working perfectly and I am able to connect to the RDS Database
+#   # mydbinstance-2107.cjs42euouytr.us-east-1.rds.amazonaws.com - I got this from the output section of Cloud Formation and then I also got the Username and Password from the Secret Manager      
 
 
-Outputs:
-  RDSInstanceEndpoint:
-    Description: Endpoint of the created RDS instance
-    Value: !GetAtt MyDBInstance.Endpoint.Address
+# Outputs:
+#   RDSInstanceEndpoint:
+#     Description: Endpoint of the created RDS instance
+#     Value: !GetAtt MyDBInstance.Endpoint.Address
 
-  EC2ElasticIP:
-    Description: Elastic IP of the EC2 instance
-    Value: !GetAtt MyEIP.PublicIp
+#   EC2ElasticIP:
+#     Description: Elastic IP of the EC2 instance
+#     Value: !GetAtt MyEIP.PublicIp
 
-  SNSTopicARN:
-    Description: ARN of the created SNS topic
-    Value: !Ref MySNSTopic
+#   SNSTopicARN:
+#     Description: ARN of the created SNS topic
+#     Value: !Ref MySNSTopic
