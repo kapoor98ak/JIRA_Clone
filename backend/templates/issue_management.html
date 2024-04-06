@@ -28,6 +28,8 @@
             <input type="number" id="edit-issue-id" name="edit-issue-id"><br>
             <label for="edit-title">New Title:</label><br>
             <input type="text" id="edit-title" name="edit-title"><br>
+            <label for="edit-assignee">New Assignee:</label><br>
+            <input type="text" id="edit-assignee" name="edit-assignee"><br>
             <label for="edit-status">New Status:</label><br>
             <input type="text" id="edit-status" name="edit-status"><br>
             <label for="edit-date">New Date:</label><br>
@@ -62,7 +64,7 @@
                     alert('Issue created successfully');
                     document.getElementById('create-form').reset();
                 } else {
-                    alert('Error creating issue');
+                    alert('Error#1: Error creating issue');
                 }
             })
             .catch((error) => {
@@ -73,13 +75,14 @@
         function editIssue() {
             var issueId = document.getElementById('edit-issue-id').value;
             var newTitle = document.getElementById('edit-title').value;
+            var newAssignee = document.getElementById('edit-assignee').value;
             var newStatus = document.getElementById('edit-status').value;
             var newDate = document.getElementById('edit-date').value;
 
             var data = {
-                "assignee": newTitle,
-                "status": newStatus,
                 "title": newTitle,
+                "assignee": newAssignee,
+                "status": newStatus,
                 "date": newDate
             };
 

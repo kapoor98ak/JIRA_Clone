@@ -4,9 +4,10 @@ import mysql.connector
 import json
 
 db_config = {}
+region_name = 'us-west-1'
 
 def getSecretCred():
-    client = boto3.client('secretsmanager')
+    client = boto3.client('secretsmanager', region_name=region_name)
     response = client.get_secret_value(
         SecretId='arn:aws:secretsmanager:us-east-1:851725512559:secret:MyRDSCredentials-1-ZQ8zMp'
         # Use from the Environment Variable

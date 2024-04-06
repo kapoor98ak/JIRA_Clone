@@ -24,10 +24,6 @@ def connect_to_db():
 def home():
     return render_template('issue_management.html')
 
-# @app.route('/')
-# def hello():
-#     return ("Jell-o World!")
-
 # Create Issue endpoint
 @app.route('/create', methods=['POST'])
 def create_issue():
@@ -109,3 +105,8 @@ def edit_issue(issue_id):
 if __name__ == '__main__':
     MySQLConn.setup_RDS()
     app.run(port=8080)
+
+
+
+
+# backend/sql-scripts/create-database.sql

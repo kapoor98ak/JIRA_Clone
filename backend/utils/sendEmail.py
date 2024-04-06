@@ -1,7 +1,8 @@
 import boto3
 import json
 
-lambda_client = boto3.client('lambda')
+region_name = 'us-east-1'
+lambda_client = boto3.client('lambda', region_name=region_name)
 
 def invoke_lambda_function(function_name, payload):
     # This is an important step!!!

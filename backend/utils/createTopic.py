@@ -1,6 +1,7 @@
 import boto3
 
-client = boto3.client('sns')
+region_name = 'us-east-1'
+client = boto3.client('sns', region_name = region_name)
 
 def create_SNS_Topic(issue_identifier):
     try:

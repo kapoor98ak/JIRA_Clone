@@ -1,7 +1,8 @@
 import boto3
 import createSubscription
 
-client = boto3.client('sns')
+region_name = 'us-east-1'
+client = boto3.client('sns', region_name=region_name)
 
 def create_SNS_Subscription(topic_arn, subscriber_email):
     try:
