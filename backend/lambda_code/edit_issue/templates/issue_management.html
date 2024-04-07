@@ -52,7 +52,7 @@
                 "date": date
             };
 
-            fetch('https://11b8w5byue.execute-api.us-east-1.amazonaws.com/prod/createissue', {
+            fetch('/create', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -64,7 +64,7 @@
                     alert('Issue created successfully');
                     document.getElementById('create-form').reset();
                 } else {
-                    alert('Error#1: Error creating issue');
+                    alert('Error creating issue');
                 }
             })
             .catch((error) => {
@@ -80,14 +80,15 @@
             var newDate = document.getElementById('edit-date').value;
 
             var data = {
-                "issue_id": issueId,
+                // Now I will send issueId from the User only and URL will be just Edit
+                "issueId": issueId,
                 "title": newTitle,
                 "assignee": newAssignee,
                 "status": newStatus,
                 "date": newDate
             };
 
-            fetch(`https://11b8w5byue.execute-api.us-east-1.amazonaws.com/prod/editissue`, {
+            fetch(`/edit`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -96,7 +97,7 @@
             })
             .then(response => {
                 if (response.ok) {
-                    alert(`Issue #${issueId} edited successfully`);
+                    alert(`Issue edited successfully`);
                     document.getElementById('edit-form').reset();
                 } else {
                     alert('Error editing issue');
