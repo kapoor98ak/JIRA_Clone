@@ -27,7 +27,17 @@ Resources:
       InstanceType: 't2.micro'
       SecurityGroups: 
         - !Ref MySecurityGroup
-      KeyName: !Ref KeyNameParameter  # Use the specified key pair name parameter
+      # KeyName: !Ref KeyNameParameter  # Use the specified key pair name parameter
+      KeyName: key-pair-cloud-term-project
+      UserData: 
+        Fn::Base64: |
+          #!/bin/bash
+          sudo yum install nginx git -y
+          sudo systemctl enable nginx
+          sudo systemctl start nginx
+          sudo git clone https://github.com/kapoor98ak/cloud-project.git /home/ec2-user/cloud-project
+          sudo cp /home/ec2-user/cloud-project/files/issue_management.html /usr/share/nginx/html/ || true
+          sudo systemctl restart nginx
       
 
   MyEIP:
