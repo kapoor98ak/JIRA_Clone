@@ -1,0 +1,46 @@
+Resources:
+
+  MySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access from anywhere
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      
+  MyInstance:
+    Type: AWS::EC2::Instance
+    DependsOn: MySecurityGroup  
+    Properties:
+      AvailabilityZone: us-east-1a
+      ImageId: 'ami-051f8a213df8bc089'
+      InstanceType: 't2.micro'
+      SecurityGroups: 
+        - !Ref MySecurityGroup
+      KeyName: !Ref KeyNameParameter  # Use the specified key pair name parameter
+      
+
+  MyEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: MyInstance  
+    Properties:
+      InstanceId: !Ref MyInstance
+
+  # This is working perfectly and I am able to SSH into the EC2 Server
+  # ssh -i key-pair-cloud-term-project.pem ec2-user@44.222.58.66
+
+
+Outputs:
+  EC2ElasticIP:
+    Description: Elastic IP of the EC2 instance
+    Value: !GetAtt MyEIP.PublicIp
