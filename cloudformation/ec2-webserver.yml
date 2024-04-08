@@ -55,6 +55,10 @@ Resources:
           ToPort: 22
           CidrIp: 134.41.178.75/32
         - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 192.168.2.58/32
+        - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
@@ -92,52 +96,6 @@ Resources:
 
   # This is working perfectly and I am able to SSH into the EC2 Server
   # ssh -i key-pair-cloud-term-project.pem ec2-user@44.222.58.66
-  
-  RDSSecret:
-    Type: AWS::SecretsManager::Secret
-    Properties:
-      Name: MyRDSCredentials-1
-      Description: RDS credentials will be stored in Secrets Manager
-      GenerateSecretString:
-        SecretStringTemplate: '{"username": "admin"}'
-        # SecretStringTemplate: '{"username": !Ref DBUsername}'
-        GenerateStringKey: "password"
-        # GenerateStringKey: !Ref DBUsername
-        PasswordLength: 16
-        ExcludeCharacters: '"@/\\'
-
-  MyDBSecurityGroup:
-    Type: AWS::RDS::DBSecurityGroup
-    Properties:
-      GroupDescription: Allow inbound access from anywhere
-      DBSecurityGroupIngress:
-        - CIDRIP: 0.0.0.0/0
-        # Change this so that only EC2 and Lambda can access this
-        
-  MyDBInstance:
-    Type: AWS::RDS::DBInstance
-    DependsOn:
-      - RDSSecret
-      - MyDBSecurityGroup  
-    Properties:
-      Engine: mysql
-      EngineVersion: '8.0.35'
-
-      DBInstanceClass: db.t3.micro 
-      DeletionProtection: false 
-
-      AllocatedStorage: 10
-
-      DBInstanceIdentifier: MyDBInstance-2107-1
-
-      DBName: temp_db 
-      MasterUsername: !Sub '{{resolve:secretsmanager:${RDSSecret}:SecretString:username}}'
-      MasterUserPassword: !Sub '{{resolve:secretsmanager:${RDSSecret}:SecretString:password}}'
-
-      PubliclyAccessible: true  # Allow access from anywhere
-      
-      DBSecurityGroups:
-        - !Ref MyDBSecurityGroup  # Attach the same security group as the EC2 instance
   
   MySNSTopic:
       Type: AWS::SNS::Topic
@@ -354,6 +312,51 @@ Resources:
       Description: "My API Deployment"
       StageName: "prod"
 
+  RDSSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: MyRDSCredentials-final-1
+      Description: RDS credentials will be stored in Secrets Manager
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "admin"}'
+        # SecretStringTemplate: '{"username": !Ref DBUsername}'
+        GenerateStringKey: "password"
+        # GenerateStringKey: !Ref DBUsername
+        PasswordLength: 16
+        ExcludeCharacters: '"@/\\'
+
+  MyDBSecurityGroup:
+    Type: AWS::RDS::DBSecurityGroup
+    Properties:
+      GroupDescription: Allow inbound access from anywhere
+      DBSecurityGroupIngress:
+        - CIDRIP: 0.0.0.0/0
+        # Change this so that only EC2 and Lambda can access this
+        
+  MyDBInstance:
+    Type: AWS::RDS::DBInstance
+    DependsOn:
+      - RDSSecret
+      - MyDBSecurityGroup  
+    Properties:
+      Engine: mysql
+      EngineVersion: '8.0.35'
+
+      DBInstanceClass: db.t3.micro 
+      DeletionProtection: false 
+
+      AllocatedStorage: 10
+
+      DBInstanceIdentifier: MyDBInstance-2107-final-1
+
+      DBName: temp_db 
+      MasterUsername: !Sub '{{resolve:secretsmanager:${RDSSecret}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${RDSSecret}:SecretString:password}}'
+
+      PubliclyAccessible: true  # Allow access from anywhere
+      
+      DBSecurityGroups:
+        - !Ref MyDBSecurityGroup  # Attach the same security group as the EC2 instance
 
 Outputs:
   RDSInstanceEndpoint:
