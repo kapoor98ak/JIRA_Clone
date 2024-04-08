@@ -1,0 +1,104 @@
+Resources:
+  ApiGatewayRestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: JiraApi2
+      Description: API Gateway for JIRA Board
+      # FailOnWarnings: true
+      ApiKeySourceType: HEADER
+      EndpointConfiguration:
+        Types:
+          - EDGE
+
+  # First
+  CreateIssueApiResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      PathPart: createissue
+      RestApiId: !Ref ApiGatewayRestApi
+
+  CreateIssueApiMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      ResourceId: !Ref CreateIssueApiResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      ApiKeyRequired: false
+      Integration:
+        IntegrationHttpMethod: POST
+        TimeoutInMillis: 29000
+        Type: AWS_PROXY
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateIssueFunction.Arn}/invocations
+      MethodResponses:
+        - StatusCode: 200
+
+  CreateIssueApiOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref CreateIssueApiResource
+      RestApiId: !Ref ApiGatewayRestApi
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: TRUE
+            method.response.header.Access-Control-Allow-Methods: TRUE
+            method.response.header.Access-Control-Allow-Origin: TRUE
+
+  LambdaPermissionForApiGatewayCreate:
+    Type: AWS::Lambda::Permission
+    DependsOn: 
+      - CreateIssueFunction
+    Properties:
+      FunctionName: !Ref CreateIssueFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/*/POST/create
+  
+  # LambdaPermissionForApiGatewayEdit:
+  #   Type: AWS::Lambda::Permission
+  #   DependsOn: 
+  #     - EditIssueFunction
+  #   Properties:
+  #     FunctionName: !Ref EditIssueFunction
+  #     Action: lambda:InvokeFunction
+  #     Principal: apigateway.amazonaws.com
+  #     SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/*/POST/edit
+  
+  ApiGatewayModel:
+    Type: AWS::ApiGateway::Model
+    Properties:
+      ContentType: "application/json"
+      RestApiId: !Ref ApiGatewayRestApi
+      Schema: {}
+
+  ApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - CreateIssueApiMethod
+      - CreateIssueApiOptionsMethod
+      # - EditIssueApiMethod
+      # - EditIssueApiOptionsMethod
+
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      Description: "My API Deployment"
+      StageName: "prod"
+  

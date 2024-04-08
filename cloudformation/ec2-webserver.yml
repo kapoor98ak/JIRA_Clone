@@ -68,7 +68,7 @@ Resources:
       TopicArn: !Ref MySNSTopic
 
   EmailSenderFunction:
-    Type: 'AWS::Lambda::Function'
+    Type: AWS::Lambda::Function
     DependsOn: 
       - MySNSTopic
     Properties:
@@ -86,7 +86,7 @@ Resources:
           SNS_TOPIC_ARN: !Ref MySNSTopic
   
   CreateIssueFunction:
-    Type: 'AWS::Lambda::Function'
+    Type: AWS::Lambda::Function
     DependsOn: 
       - MySNSTopic
       - MyDBInstance
@@ -107,7 +107,7 @@ Resources:
           RDSInstance: !GetAtt MyDBInstance.Endpoint.Address
   
   EditIssueFunction:
-    Type: 'AWS::Lambda::Function'
+    Type: AWS::Lambda::Function
     DependsOn: 
       - MySNSTopic
       - MyDBInstance
@@ -158,40 +158,42 @@ Resources:
       AuthorizationType: NONE
       ApiKeyRequired: false
       Integration:
+        ConnectionType: INTERNET
         IntegrationHttpMethod: POST
+        PassthroughBehavior: WHEN_NO_MATCH
         TimeoutInMillis: 29000
         Type: AWS_PROXY
         Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateIssueFunction.Arn}/invocations
-      MethodResponses:
-        - StatusCode: 200
+  #     MethodResponses:
+  #       - StatusCode: 200
 
-  CreateIssueApiOptionsMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      AuthorizationType: NONE
-      HttpMethod: OPTIONS
-      ResourceId: !Ref CreateIssueApiResource
-      RestApiId: !Ref ApiGatewayRestApi
-      Integration:
-        Type: MOCK
-        RequestTemplates:
-          application/json: '{"statusCode": 200}'
-        IntegrationResponses:
-          - StatusCode: 200
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
-            ResponseTemplates:
-              application/json: ""
-      MethodResponses:
-        - StatusCode: 200
-          ResponseModels:
-            application/json: Empty
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: TRUE
-            method.response.header.Access-Control-Allow-Methods: TRUE
-            method.response.header.Access-Control-Allow-Origin: TRUE
+  # CreateIssueApiOptionsMethod:
+  #   Type: AWS::ApiGateway::Method
+  #   Properties:
+  #     AuthorizationType: NONE
+  #     HttpMethod: OPTIONS
+  #     ResourceId: !Ref CreateIssueApiResource
+  #     RestApiId: !Ref ApiGatewayRestApi
+  #     Integration:
+  #       Type: MOCK
+  #       RequestTemplates:
+  #         application/json: '{"statusCode": 200}'
+  #       IntegrationResponses:
+  #         - StatusCode: 200
+  #           ResponseParameters:
+  #             method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+  #             method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+  #             method.response.header.Access-Control-Allow-Origin: "'*'"
+  #           ResponseTemplates:
+  #             application/json: ""
+  #     MethodResponses:
+  #       - StatusCode: 200
+  #         ResponseModels:
+  #           application/json: Empty
+  #         ResponseParameters:
+  #           method.response.header.Access-Control-Allow-Headers: TRUE
+  #           method.response.header.Access-Control-Allow-Methods: TRUE
+  #           method.response.header.Access-Control-Allow-Origin: TRUE
 # Edit 
   EditIssueApiResource:
     Type: AWS::ApiGateway::Resource
@@ -209,40 +211,42 @@ Resources:
       AuthorizationType: NONE
       ApiKeyRequired: false
       Integration:
+        ConnectionType: INTERNET
         IntegrationHttpMethod: POST
+        PassthroughBehavior: WHEN_NO_MATCH
         TimeoutInMillis: 29000
         Type: AWS_PROXY
         Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${EditIssueFunction.Arn}/invocations
-      MethodResponses:
-        - StatusCode: 200
+  #     MethodResponses:
+  #       - StatusCode: 200
 
-  EditIssueApiOptionsMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      AuthorizationType: NONE
-      HttpMethod: OPTIONS
-      ResourceId: !Ref EditIssueApiResource
-      RestApiId: !Ref ApiGatewayRestApi
-      Integration:
-        Type: MOCK
-        RequestTemplates:
-          application/json: '{"statusCode": 200}'
-        IntegrationResponses:
-          - StatusCode: 200
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
-            ResponseTemplates:
-              application/json: ""
-      MethodResponses:
-        - StatusCode: 200
-          ResponseModels:
-            application/json: Empty
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: TRUE
-            method.response.header.Access-Control-Allow-Methods: TRUE
-            method.response.header.Access-Control-Allow-Origin: TRUE
+  # EditIssueApiOptionsMethod:
+  #   Type: AWS::ApiGateway::Method
+  #   Properties:
+  #     AuthorizationType: NONE
+  #     HttpMethod: OPTIONS
+  #     ResourceId: !Ref EditIssueApiResource
+  #     RestApiId: !Ref ApiGatewayRestApi
+  #     Integration:
+  #       Type: MOCK
+  #       RequestTemplates:
+  #         application/json: '{"statusCode": 200}'
+  #       IntegrationResponses:
+  #         - StatusCode: 200
+  #           ResponseParameters:
+  #             method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+  #             method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+  #             method.response.header.Access-Control-Allow-Origin: "'*'"
+  #           ResponseTemplates:
+  #             application/json: ""
+  #     MethodResponses:
+  #       - StatusCode: 200
+  #         ResponseModels:
+  #           application/json: Empty
+  #         ResponseParameters:
+  #           method.response.header.Access-Control-Allow-Headers: TRUE
+  #           method.response.header.Access-Control-Allow-Methods: TRUE
+  #           method.response.header.Access-Control-Allow-Origin: TRUE
   
   LambdaPermissionForApiGatewayCreate:
     Type: AWS::Lambda::Permission
@@ -275,9 +279,9 @@ Resources:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
       - CreateIssueApiMethod
-      - CreateIssueApiOptionsMethod
+      # - CreateIssueApiOptionsMethod
       - EditIssueApiMethod
-      - EditIssueApiOptionsMethod
+      # - EditIssueApiOptionsMethod
 
     Properties:
       RestApiId: !Ref ApiGatewayRestApi
@@ -287,7 +291,7 @@ Resources:
   RDSSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: MyRDSCredentials-final-3
+      Name: MyRDSCredentials
       Description: RDS credentials will be stored in Secrets Manager
       GenerateSecretString:
         SecretStringTemplate: '{"username": "admin"}'
@@ -321,7 +325,7 @@ Resources:
 
       AllocatedStorage: 10
 
-      DBInstanceIdentifier: MyDBInstance-2107-final-3
+      DBInstanceIdentifier: MyDBInstance
 
       DBName: temp_db 
       MasterUsername: !Sub '{{resolve:secretsmanager:${RDSSecret}:SecretString:username}}'
@@ -362,21 +366,35 @@ Resources:
       SecurityGroups: 
         - !Ref MySecurityGroup
       KeyName: !Ref KeyNameParameter  # Use the specified key pair name parameter
-      UserData: 
+      UserData:
         Fn::Base64: |
-          #!/bin/bash
-          sudo yum install nginx git -y
-          sudo systemctl enable nginx
-          sudo systemctl start nginx
-          sudo git clone https://github.com/kapoor98ak/cloud-project.git /home/ec2-user/cloud-project
-          sudo cp /home/ec2-user/cloud-project/files/issue_management.html /usr/share/nginx/html/ || true
-          sudo systemctl restart nginx
+            #!/bin/bash
+            sudo yum install nginx git -y
+            sudo systemctl enable nginx
+            sudo systemctl start nginx
+            sudo git clone https://github.com/kapoor98ak/cloud-project.git /home/ec2-user/cloud-project
+            sudo cp /home/ec2-user/cloud-project/files/issue_management.html /usr/share/nginx/html/ || true
+            sudo systemctl restart nginx
+          #   MY_API_GATEWAY_RootResourceId=${ApiGatewayRestApiRootResourceId}
+          #   MY_API_GATEWAY_RestApiId=${ApiGatewayRestApiRestApiId}
+          #   MY_REGION=${AWSRegion}
+          #   sudo bash -c 'echo $MY_API_GATEWAY_RootResourceId >> /etc/profile'
+          #   sudo bash -c 'echo $MY_API_GATEWAY_RestApiId >> /etc/profile'
+          #   sudo bash -c 'echo $MY_REGION >> /etc/profile'
+          #   API_URL_1= https://${MY_API_GATEWAY_RestApiId}.execute-api.${MY_REGION}.amazonaws.com/prod
+          #   API_URL_2= https://${MY_API_GATEWAY_RootResourceId}.execute-api.${MY_REGION}.amazonaws.com/prod
+          #   sudo bash -c 'echo $API_URL_1 >> /etc/profile'
+          #   sudo bash -c 'echo $API_URL_2 >> /etc/profile'
+          #   source /etc/profile
+          # - ApiGatewayRestApiRootResourceId: !GetAtt ApiGatewayRestApi.RootResourceId
+          #   ApiGatewayRestApiRestApiId: !GetAtt ApiGatewayRestApi.RestApiId
+          #   AWSRegion: ${AWS::Region}
 
-          # Export API_URL environment variable with API Gateway ID substitution
-          sudo bash -c 'echo "export API_URL_NAME=https://\$(aws apigateway get-rest-api --rest-api-id ${ApiGatewayRestApi} --query 'name' --output text).execute-api.${AWS::Region}.amazonaws.com/prod" >> /etc/profile' || true
-          sudo bash -c 'echo "export API_URL_NAME2=https://\$(aws apigateway get-rest-api --rest-api-id !Ref ApiGatewayRestApi --query 'name' --output text).execute-api.${AWS::Region}.amazonaws.com/prod" >> /etc/profile' || true
-          sudo bash -c 'echo "export API_URL_ID=https://\$(aws apigateway get-rest-api --rest-api-id !Ref ApiGatewayRestApi --query 'id' --output text).execute-api.${AWS::Region}.amazonaws.com/prod" >> /etc/profile' || true
-          source /etc/profile
+          # # Export API_URL environment variable with API Gateway ID substitution
+          # sudo bash -c 'echo "export API_URL=https://\$(aws apigateway get-rest-api --rest-api-id ${ApiGatewayRestApi} --query 'id' --output text).execute-api.${AWS::Region}.amazonaws.com/prod" >> /etc/profile' || true
+          # sudo bash -c 'echo "export API_URL_NAME2=https://\$(aws apigateway get-rest-api --rest-api-id !Ref ApiGatewayRestApi --query 'name' --output text).execute-api.${AWS::Region}.amazonaws.com/prod" >> /etc/profile' || true
+          # sudo bash -c 'echo "export API_URL_ID=https://\$(aws apigateway get-rest-api --rest-api-id !Ref ApiGatewayRestApi --query 'id' --output text).execute-api.${AWS::Region}.amazonaws.com/prod" >> /etc/profile' || true
+          # source /etc/profile
 
   MyEIP:
     Type: AWS::EC2::EIP
