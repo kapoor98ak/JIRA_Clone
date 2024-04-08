@@ -1,55 +1,10 @@
-AWSTemplateFormatVersion: "2010-09-09"
-Description: AWS CloudFormation for Jira-Lite Web Application
-
-Parameters:
-  InstanceEnvironmentParameter:
-    Type: String
-    Default: dev
-    AllowedValues:
-      - dev
-      - prod
-    Description: Enter dev or prod environment, default is dev.
-
-  KeyNameParameter:
-    Type: String
-    Description: Name of the existing key pair to be used for SSH access.
-
-  UserEmail:
-    Type: String
-    Description: Email of the user to subscribe to the SNS topic
-
-  # DBUsername:
-  #     Type: String
-  #     Description: Master username for the RDS database.
-  
-  # DBMasterPassword:
-  #   Type: String
-  #   NoEcho: true
-  #   Description: Master password for the RDS database.
-
-Mappings:
-  InstanceMap:
-    us-east-1:
-      dev: t2.micro
-      prod: m1.small
-    us-west-1:
-      dev: m1.small
-      prod: m1.large
-  AMIMap:
-    us-east-1:
-      dev: ami-051f8a213df8bc089
-      prod: ami-0915bcb5fa77e4892
-    us-west-1:
-      dev: ami-051f8a213df8bc089
-      prod: ami-066c82dabe6dd7f73
-
 Resources:
   MySNSTopic:
       Type: AWS::SNS::Topic
       Properties:
         DisplayName: MySNSNotificationTopic
 
-  MySNSSubscriptionA:
+  MySNSSubscription:
     Type: AWS::SNS::Subscription
     DependsOn: MySNSTopic
     Properties:
@@ -57,20 +12,12 @@ Resources:
       # Endpoint: !Ref UserEmail
       Endpoint: "kapoor98.ak@gmail.com"
       TopicArn: !Ref MySNSTopic
-    
-  MySNSSubscriptionB:
-    Type: AWS::SNS::Subscription
-    DependsOn: MySNSTopic
-    Properties:
-      Protocol: email
-      # Endpoint: !Ref UserEmail
-      Endpoint: "kapoor28204@gmail.com"
-      TopicArn: !Ref MySNSTopic
 
   EmailSenderFunction:
     Type: 'AWS::Lambda::Function'
     DependsOn: 
       - MySNSTopic
+      - MyDBInstance
     Properties:
       FunctionName: emailSenderLambdaFunction
       Handler: lambda_function.lambda_handler
@@ -84,6 +31,9 @@ Resources:
       Environment:
         Variables:
           SNS_TOPIC_ARN: !Ref MySNSTopic
+          RDSSecret_ARN: !Ref RDSSecret
+          RDSInstance: !Ref MyDBInstance
+
   
   CreateIssueFunction:
     Type: 'AWS::Lambda::Function'
@@ -104,7 +54,8 @@ Resources:
         Variables:
           SNS_TOPIC_ARN: !Ref MySNSTopic
           RDSSecret_ARN: !Ref RDSSecret
-          RDSInstance: !GetAtt MyDBInstance.Endpoint.Address
+          RDSInstance: !Ref MyDBInstance
+
   
   EditIssueFunction:
     Type: 'AWS::Lambda::Function'
@@ -125,7 +76,8 @@ Resources:
         Variables:
           SNS_TOPIC_ARN: !Ref MySNSTopic
           RDSSecret_ARN: !Ref RDSSecret
-          RDSInstance: !GetAtt MyDBInstance.Endpoint.Address
+          RDSInstance: !Ref MyDBInstance
+
   # This is working perfectly and I am able to connect to the RDS Database
   # mydbinstance-2107.cjs42euouytr.us-east-1.rds.amazonaws.com - I got this from the output section of Cloud Formation and then I also got the Username and Password from the Secret Manager      
 
@@ -287,7 +239,7 @@ Resources:
   RDSSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: MyRDSCredentials-final-3
+      Name: MyRDSCredentials-final-1
       Description: RDS credentials will be stored in Secrets Manager
       GenerateSecretString:
         SecretStringTemplate: '{"username": "admin"}'
@@ -310,7 +262,8 @@ Resources:
     DependsOn:
       - RDSSecret
       - MyDBSecurityGroup  
-
+      # I want to pass the URL inside so I will do this
+      # - ApiGatewayDeployment
 
     Properties:
       Engine: mysql
@@ -321,7 +274,7 @@ Resources:
 
       AllocatedStorage: 10
 
-      DBInstanceIdentifier: MyDBInstance-2107-final-3
+      DBInstanceIdentifier: MyDBInstance-2107-final-1
 
       DBName: temp_db 
       MasterUsername: !Sub '{{resolve:secretsmanager:${RDSSecret}:SecretString:username}}'
@@ -331,124 +284,3 @@ Resources:
       
       DBSecurityGroups:
         - !Ref MyDBSecurityGroup  # Attach the same security group as the EC2 instance
-  
-  MySecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Enable SSH access from my pc and HTTP, HTTPS traffic from anywhere
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-      
-  MyInstance:
-    Type: AWS::EC2::Instance
-    DependsOn: 
-      - MySecurityGroup  
-      - ApiGatewayDeployment
-    Properties:
-      AvailabilityZone: us-east-1a
-      ImageId: !FindInMap [AMIMap, !Ref "AWS::Region", !Ref InstanceEnvironmentParameter]
-      InstanceType: !FindInMap [InstanceMap,!Ref "AWS::Region", !Ref InstanceEnvironmentParameter]
-      SecurityGroups: 
-        - !Ref MySecurityGroup
-      KeyName: !Ref KeyNameParameter  # Use the specified key pair name parameter
-      UserData: 
-        Fn::Base64: |
-          #!/bin/bash
-          sudo yum install nginx git -y
-          sudo systemctl enable nginx
-          sudo systemctl start nginx
-          sudo git clone https://github.com/kapoor98ak/cloud-project.git /home/ec2-user/cloud-project
-          sudo cp /home/ec2-user/cloud-project/files/issue_management.html /usr/share/nginx/html/ || true
-          sudo systemctl restart nginx
-
-          # Export API_URL environment variable with API Gateway ID substitution
-          sudo bash -c 'echo "export API_URL_NAME=https://\$(aws apigateway get-rest-api --rest-api-id ${ApiGatewayRestApi} --query 'name' --output text).execute-api.${AWS::Region}.amazonaws.com/prod" >> /etc/profile' || true
-          sudo bash -c 'echo "export API_URL_NAME2=https://\$(aws apigateway get-rest-api --rest-api-id !Ref ApiGatewayRestApi --query 'name' --output text).execute-api.${AWS::Region}.amazonaws.com/prod" >> /etc/profile' || true
-          sudo bash -c 'echo "export API_URL_ID=https://\$(aws apigateway get-rest-api --rest-api-id !Ref ApiGatewayRestApi --query 'id' --output text).execute-api.${AWS::Region}.amazonaws.com/prod" >> /etc/profile' || true
-          source /etc/profile
-
-  MyEIP:
-    Type: AWS::EC2::EIP
-    DependsOn: MyInstance  
-    Properties:
-      InstanceId: !Ref MyInstance
-
-  # This is working perfectly and I am able to SSH into the EC2 Server
-  # ssh -i key-pair-cloud-term-project.pem ec2-user@44.222.58.66
-  # key-pair-cloud-term-project
-  # kapoor98.ak@gmail.com
-  
-
-Outputs:
-  RDSInstanceEndpoint:
-    Description: Endpoint of the created RDS instance
-    Value: !GetAtt MyDBInstance.Endpoint.Address
-
-  EC2ElasticIP:
-    Description: Elastic IP of the EC2 instance
-    Value: !GetAtt MyEIP.PublicIp
-
-  SNSTopicARN:
-    Description: ARN of the created SNS topic
-    Value: !Ref MySNSTopic
-    Export:
-      Name: "SNSTopicARN"
-  
-  WebAppInstanceID:
-    Description: "ID of the EC2 instance running the Jira application"
-    Value: !Ref MyInstance
-    Export:
-      Name: "WebAppInstanceID"
-
-  WebAppPublicIP:
-    Description: "Public IP address of the EC2 instance"
-    Value: !GetAtt MyInstance.PublicIp
-    Export:
-      Name: "WebAppPublicIP"
-
-  WebAppPublicDNS:
-    Description: "Public DNS name of the EC2 instance"
-    Value: !GetAtt MyInstance.PublicDnsName
-    Export:
-      Name: "WebAppPublicDNS"
-
-  ApiGatewayUrl:
-    Description: "URL of the deployed API Gateway"
-    Value: !Sub "https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
-    Export:
-      Name: "ApiGatewayUrl"
-  
-  ApiGatewayRestApiId:
-    Description: "RestApiId of the deployed API Gateway"
-    Value: !GetAtt ApiGatewayRestApi.RestApiId
-    Export:
-      Name: "ApiGatewayRestApiId"
-
-  ApiGatewayRootResourceId:  
-    Description: "URL of the deployed API Gateway"
-    Value: !GetAtt ApiGatewayRestApi.RootResourceId
-    Export:
-      Name: "ApiGatewayRootResourceId"
-
-  CreateFunctionARN:
-    Description: "ARN of the Lambda function for creating issue"
-    Value: !GetAtt CreateIssueFunction.Arn
-    Export:
-      Name: "CreateIssueFunctionARN"
-
-  EditFunctionARN:
-    Description: "ARN of the Lambda function for editing issue"
-    Value: !GetAtt EditIssueFunction.Arn
-    Export:
-      Name: "EditIssueFunctionARN"
