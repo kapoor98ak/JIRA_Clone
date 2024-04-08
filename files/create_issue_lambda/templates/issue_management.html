@@ -52,7 +52,7 @@
                 "date": date
             };
 
-            fetch('/create', {
+            fetch(`${API_URL}/create`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -86,7 +86,7 @@
                 "date": newDate
             };
 
-            fetch(`/edit/${issueId}`, {
+            fetch(`${API_URL}/edit`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
