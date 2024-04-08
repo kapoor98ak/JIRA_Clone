@@ -1,14 +1,59 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: AWS CloudFormation for E-commerce Web Application
+
+Parameters:
+  InstanceEnvironmentParameter:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+    Description: Enter dev or prod environment, default is dev.
+
+  KeyNameParameter:
+    Type: String
+    Description: Name of the existing key pair to be used for SSH access.
+
+  UserEmail:
+    Type: String
+    Description: Email of the user to subscribe to the SNS topic
+
+  # DBUsername:
+  #     Type: String
+  #     Description: Master username for the RDS database.
+  
+  # DBMasterPassword:
+  #   Type: String
+  #   NoEcho: true
+  #   Description: Master password for the RDS database.
+
+Mappings:
+  InstanceMap:
+    us-east-1:
+      dev: t2.micro
+      prod: m1.small
+    us-west-1:
+      dev: m1.small
+      prod: m1.large
+  AMIMap:
+    us-east-1:
+      dev: ami-051f8a213df8bc089
+      prod: ami-0915bcb5fa77e4892
+    us-west-1:
+      dev: ami-051f8a213df8bc089
+      prod: ami-066c82dabe6dd7f73
+
 Resources:
 
   MySecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Enable SSH access from anywhere
+      GroupDescription: Enable SSH access from my pc and HTTP, HTTPS traffic from anywhere
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
-          CidrIp: 0.0.0.0/0
+          CidrIp: 134.41.178.75/32
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
@@ -23,12 +68,11 @@ Resources:
     DependsOn: MySecurityGroup  
     Properties:
       AvailabilityZone: us-east-1a
-      ImageId: 'ami-051f8a213df8bc089'
-      InstanceType: 't2.micro'
+      ImageId: !FindInMap [AMIMap, !Ref "AWS::Region", !Ref InstanceEnvironmentParameter]
+      InstanceType: !FindInMap [InstanceMap,!Ref "AWS::Region", !Ref InstanceEnvironmentParameter]
       SecurityGroups: 
         - !Ref MySecurityGroup
-      # KeyName: !Ref KeyNameParameter  # Use the specified key pair name parameter
-      KeyName: key-pair-cloud-term-project
+      KeyName: !Ref KeyNameParameter  # Use the specified key pair name parameter
       UserData: 
         Fn::Base64: |
           #!/bin/bash
@@ -48,9 +92,316 @@ Resources:
 
   # This is working perfectly and I am able to SSH into the EC2 Server
   # ssh -i key-pair-cloud-term-project.pem ec2-user@44.222.58.66
+  
+  RDSSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: MyRDSCredentials-1
+      Description: RDS credentials will be stored in Secrets Manager
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "admin"}'
+        # SecretStringTemplate: '{"username": !Ref DBUsername}'
+        GenerateStringKey: "password"
+        # GenerateStringKey: !Ref DBUsername
+        PasswordLength: 16
+        ExcludeCharacters: '"@/\\'
+
+  MyDBSecurityGroup:
+    Type: AWS::RDS::DBSecurityGroup
+    Properties:
+      GroupDescription: Allow inbound access from anywhere
+      DBSecurityGroupIngress:
+        - CIDRIP: 0.0.0.0/0
+        # Change this so that only EC2 and Lambda can access this
+        
+  MyDBInstance:
+    Type: AWS::RDS::DBInstance
+    DependsOn:
+      - RDSSecret
+      - MyDBSecurityGroup  
+    Properties:
+      Engine: mysql
+      EngineVersion: '8.0.35'
+
+      DBInstanceClass: db.t3.micro 
+      DeletionProtection: false 
+
+      AllocatedStorage: 10
+
+      DBInstanceIdentifier: MyDBInstance-2107-1
+
+      DBName: temp_db 
+      MasterUsername: !Sub '{{resolve:secretsmanager:${RDSSecret}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${RDSSecret}:SecretString:password}}'
+
+      PubliclyAccessible: true  # Allow access from anywhere
+      
+      DBSecurityGroups:
+        - !Ref MyDBSecurityGroup  # Attach the same security group as the EC2 instance
+  
+  MySNSTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        DisplayName: MySNSNotificationTopic
+
+  MySNSSubscription:
+    Type: AWS::SNS::Subscription
+    DependsOn: MySNSTopic
+    Properties:
+      Protocol: email
+      # Endpoint: !Ref UserEmail
+      Endpoint: "kapoor98.ak@gmail.com"
+      TopicArn: !Ref MySNSTopic
+
+  EmailSenderFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: emailSenderLambdaFunction
+      Handler: lambda_function.lambda_handler
+      # LabRole ARN
+      Role: arn:aws:iam::851725512559:role/LabRole
+      Code:
+        S3Bucket: my-lambda-code-bucket-1
+        S3Key: lambda_function.py.zip
+      Runtime: python3.8
+      Timeout: 30
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: !Ref MySNSTopic
+  
+  CreateIssueFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: createIssueLambdaFunction
+      Handler: create_issue_lambda.lambda_handler
+      # LabRole ARN
+      Role: arn:aws:iam::851725512559:role/LabRole
+      Code:
+        S3Bucket: my-lambda-code-bucket-1
+        S3Key: create_issue_lambda.zip
+      Runtime: python3.8
+      Timeout: 30
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: !Ref MySNSTopic
+  
+  EditIssueFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: editIssueLambdaFunction
+      Handler: edit_issue_lambda.lambda_handler
+      # LabRole ARN
+      Role: arn:aws:iam::851725512559:role/LabRole
+      Code:
+        S3Bucket: my-lambda-code-bucket-1
+        S3Key: edit_issue_lambda.zip
+      Runtime: python3.8
+      Timeout: 30
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: !Ref MySNSTopic
+  # This is working perfectly and I am able to connect to the RDS Database
+  # mydbinstance-2107.cjs42euouytr.us-east-1.rds.amazonaws.com - I got this from the output section of Cloud Formation and then I also got the Username and Password from the Secret Manager      
+
+# API Gateway Setup
+  ApiGatewayRestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: JiraApi
+      Description: API Gateway for JIRA Board
+      # FailOnWarnings: true
+      ApiKeySourceType: HEADER
+      EndpointConfiguration:
+        Types:
+          - EDGE
+
+  # First
+  CreateIssueApiResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      PathPart: create
+      RestApiId: !Ref ApiGatewayRestApi
+
+  CreateIssueApiMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      ResourceId: !Ref CreateIssueApiResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      ApiKeyRequired: false
+      Integration:
+        IntegrationHttpMethod: POST
+        TimeoutInMillis: 29000
+        Type: AWS_PROXY
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateIssueFunction.Arn}/invocations
+      MethodResponses:
+        - StatusCode: 200
+
+  CreateIssueApiOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref CreateIssueApiResource
+      RestApiId: !Ref ApiGatewayRestApi
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: TRUE
+            method.response.header.Access-Control-Allow-Methods: TRUE
+            method.response.header.Access-Control-Allow-Origin: TRUE
+# Edit 
+  EditIssueApiResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      PathPart: edit
+      RestApiId: !Ref ApiGatewayRestApi
+
+  EditIssueApiMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      ResourceId: !Ref EditIssueApiResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      ApiKeyRequired: false
+      Integration:
+        IntegrationHttpMethod: POST
+        TimeoutInMillis: 29000
+        Type: AWS_PROXY
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${EditIssueFunction.Arn}/invocations
+      MethodResponses:
+        - StatusCode: 200
+
+  EditIssueApiOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref EditIssueApiResource
+      RestApiId: !Ref ApiGatewayRestApi
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: TRUE
+            method.response.header.Access-Control-Allow-Methods: TRUE
+            method.response.header.Access-Control-Allow-Origin: TRUE
+  
+  LambdaPermissionForApiGatewayCreate:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref CreateIssueFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/*/POST/create
+  
+  LambdaPermissionForApiGatewayEdit:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref EditIssueFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/*/POST/edit
+  
+  ApiGatewayModel:
+    Type: AWS::ApiGateway::Model
+    Properties:
+      ContentType: "application/json"
+      RestApiId: !Ref ApiGatewayRestApi
+      Schema: {}
+
+  ApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - CreateIssueApiMethod
+      - CreateIssueApiOptionsMethod
+      - EditIssueApiMethod
+      - EditIssueApiOptionsMethod
+
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      Description: "My API Deployment"
+      StageName: "prod"
 
 
 Outputs:
+  RDSInstanceEndpoint:
+    Description: Endpoint of the created RDS instance
+    Value: !GetAtt MyDBInstance.Endpoint.Address
+
   EC2ElasticIP:
     Description: Elastic IP of the EC2 instance
     Value: !GetAtt MyEIP.PublicIp
+
+  SNSTopicARN:
+    Description: ARN of the created SNS topic
+    Value: !Ref MySNSTopic
+    Export:
+      Name: "SNSTopicARN"
+  
+  WebAppInstanceID:
+    Description: "ID of the EC2 instance running the Jira application"
+    Value: !Ref MyInstance
+    Export:
+      Name: "WebAppInstanceID"
+
+  WebAppPublicIP:
+    Description: "Public IP address of the EC2 instance"
+    Value: !GetAtt MyInstance.PublicIp
+    Export:
+      Name: "WebAppPublicIP"
+
+  WebAppPublicDNS:
+    Description: "Public DNS name of the EC2 instance"
+    Value: !GetAtt MyInstance.PublicDnsName
+    Export:
+      Name: "WebAppPublicDNS"
+
+  ApiGatewayUrl:
+    Description: "URL of the deployed API Gateway"
+    Value: !Sub "https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+    Export:
+      Name: "ApiGatewayUrl"
+
+  CreateFunctionARN:
+    Description: "ARN of the Lambda function for creating issue"
+    Value: !GetAtt CreateIssueFunction.Arn
+    Export:
+      Name: "CreateIssueFunctionARN"
+
+  EditFunctionARN:
+    Description: "ARN of the Lambda function for editing issue"
+    Value: !GetAtt EditIssueFunction.Arn
+    Export:
+      Name: "EditIssueFunctionARN"
